@@ -1,0 +1,31 @@
+{
+    "name": "zenden2k/whatsapp-encrypt",
+    "description": "WhatsApp encryption decorators for PSR-7",
+    "type": "library",
+    "license": "MIT",
+    "version": "1.0",
+    "autoload": {
+        "psr-4": {
+            "Zenden2k\\WhatsappEncrypt\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Sergey Svistunov",
+            "email": "zenden2k@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^7.4",
+        "psr/http-message": "^2.0",
+        "ext-openssl": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^5.5",
+        "guzzlehttp/psr7": "^2.7"
+    },
+    "scripts": {
+        "test": "./vendor/bin/phpunit",
+        "test-coverage": "./vendor/bin/phpunit --coverage-html coverage"
+    }
+}
