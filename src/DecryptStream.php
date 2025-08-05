@@ -9,8 +9,6 @@ class DecryptStream extends AbstractCryptStream
 {
     private const BUFFER_SIZE = 32768;
 
-    const BLOCK_SIZE = 16; // 128 bits
-    private const MAC_TRUNCATION_SIZE = 10;
     private ?bool $validated = null;
     private ?int $length = null;
 
@@ -19,6 +17,12 @@ class DecryptStream extends AbstractCryptStream
     private string $plainBuffer = '';
     private string $cipherBuffer = '';
 
+    /**
+     * @param StreamInterface $stream
+     * @param string $mediaKey
+     * @param string $appInfo
+     * @throws \Exception
+     */
     public function __construct(StreamInterface $stream, string $mediaKey, string $appInfo)
     {
         parent::__construct($stream, $mediaKey, $appInfo);

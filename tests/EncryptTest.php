@@ -4,29 +4,30 @@ namespace Zenden2k\WhatsappEncrypt\Tests;
 
 use GuzzleHttp\Psr7;
 use PHPUnit\Framework\TestCase;
-use Zenden2k\WhatsappEncrypt\DecryptStream;
+use Zenden2k\WhatsappEncrypt\EncryptStream;
 use Zenden2k\WhatsappEncrypt\Helper;
 
-class DecryptTest extends TestCase
+class EncryptTest extends TestCase
 {
     use SampleFileTrait;
 
     private function doTestReadFile(string $fileName, string $mediaType) {
-        $file = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.encrypted', 'rb'));
-        $decryptStream = new DecryptStream($file, $this->getSampleFileContents($fileName.'.key'), $mediaType);
-        $this->assertEquals($this->getSampleFileContents( $fileName . '.original'), $decryptStream->getContents());
+        $file = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.original', 'rb'));
+        $encryptStream = new EncryptStream($file, $this->getSampleFileContents($fileName.'.key'), $mediaType);
+        $this->assertEquals($this->getSampleFileContents( $fileName . '.encrypted'), $encryptStream->getContents());
     }
 
     private function doTestPartialReadFile(string $fileName, string $mediaType, int $bufferSize = 32 * 1024)
     {
-        $imageFile = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.encrypted', 'r'));
-        $decryptStream = new DecryptStream($imageFile, $this->getSampleFileContents($fileName.'.key'), $mediaType);
+        $imageFile = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.original', 'r'));
+        $encryptStream = new EncryptStream($imageFile, $this->getSampleFileContents($fileName.'.key'), $mediaType);
         $data = '';
-        while(!$decryptStream->eof()) {
-            $data .= $decryptStream->read($bufferSize);
+
+        while(!$encryptStream->eof()) {
+            $data .= $encryptStream->read($bufferSize);
         }
 
-        $this->assertEquals($this->getSampleFileContents( $fileName . '.original'), $data);
+        $this->assertEquals($this->getSampleFileContents( $fileName . '.encrypted'), $data);
     }
 
     public function testReadFiles()
@@ -46,17 +47,18 @@ class DecryptTest extends TestCase
     public function testPartialReadNotMultipleBufferSize()
     {
         $this->doTestPartialReadFile('IMAGE', Helper::MEDIA_TYPE_IMAGE,1111);
+        $this->doTestPartialReadFile('IMAGE', Helper::MEDIA_TYPE_IMAGE,7);
         $this->doTestPartialReadFile('VIDEO', Helper::MEDIA_TYPE_VIDEO, 33337);
         $this->doTestPartialReadFile('AUDIO', Helper::MEDIA_TYPE_AUDIO, 2225);
     }
 
     private function doTestRewind(string $fileName, string $mediaType) {
-        $file = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.encrypted', 'rb'));
-        $decryptStream = new DecryptStream($file, $this->getSampleFileContents($fileName.'.key'), $mediaType);
-        $originalFileContents = $this->getSampleFileContents( $fileName . '.original');
-        $this->assertEquals($originalFileContents, $decryptStream->getContents());
-        $decryptStream->rewind();
-        $this->assertEquals($originalFileContents, $decryptStream->getContents());
+        $file = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.original', 'rb'));
+        $encryptStream = new EncryptStream($file, $this->getSampleFileContents($fileName.'.key'), $mediaType);
+        $originalFileContents = $this->getSampleFileContents( $fileName . '.encrypted');
+        $this->assertEquals($originalFileContents, $encryptStream->getContents());
+        $encryptStream->rewind();
+        $this->assertEquals($originalFileContents, $encryptStream->getContents());
     }
 
     public function testRewind()
@@ -67,12 +69,12 @@ class DecryptTest extends TestCase
     }
 
     private function doTestSeek(string $fileName, string $mediaType) {
-        $file = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.encrypted', 'rb'));
-        $decryptStream = new DecryptStream($file, $this->getSampleFileContents($fileName.'.key'), $mediaType);
-        $originalFileContents = $this->getSampleFileContents( $fileName . '.original');
-        $this->assertEquals($originalFileContents, $decryptStream->getContents());
-        $decryptStream->seek(0);
-        $this->assertEquals($originalFileContents, $decryptStream->getContents());
+        $file = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.original', 'rb'));
+        $encryptStream = new EncryptStream($file, $this->getSampleFileContents($fileName.'.key'), $mediaType);
+        $originalFileContents = $this->getSampleFileContents( $fileName . '.encrypted');
+        $this->assertEquals($originalFileContents, $encryptStream->getContents());
+        $encryptStream->seek(0);
+        $this->assertEquals($originalFileContents, $encryptStream->getContents());
     }
 
     public function testSeek()
@@ -86,17 +88,18 @@ class DecryptTest extends TestCase
         $fileName = 'IMAGE';
         $mediaType = Helper::MEDIA_TYPE_IMAGE;
         $this->expectException(\LogicException::class);
-        $file = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.encrypted', 'rb'));
-        $decryptStream = new DecryptStream($file, $this->getSampleFileContents($fileName.'.key'), $mediaType);
-        $originalFileContents = $this->getSampleFileContents( $fileName . '.original');
+        $file = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.original', 'rb'));
+        $decryptStream = new EncryptStream($file, $this->getSampleFileContents($fileName.'.key'), $mediaType);
+        $originalFileContents = $this->getSampleFileContents( $fileName . '.encrypted');
         $this->assertEquals($originalFileContents, $decryptStream->getContents());
         $decryptStream->seek(5555);
+        $this->assertEquals($originalFileContents, $decryptStream->getContents());
     }
 
     private function doTestToString(string $fileName, string $mediaType) {
-        $file = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.encrypted', 'rb'));
-        $decryptStream = new DecryptStream($file, $this->getSampleFileContents($fileName.'.key'), $mediaType);
-        $this->assertEquals($this->getSampleFileContents( $fileName . '.original'), (string)$decryptStream);
+        $file = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.original', 'rb'));
+        $encryptStream = new EncryptStream($file, $this->getSampleFileContents($fileName.'.key'), $mediaType);
+        $this->assertEquals($this->getSampleFileContents( $fileName . '.encrypted'), (string)$encryptStream);
     }
 
     public function testToString()
@@ -107,10 +110,10 @@ class DecryptTest extends TestCase
     }
 
     private function doTestToStringRewind(string $fileName, string $mediaType) {
-        $file = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.encrypted', 'rb'));
-        $decryptStream = new DecryptStream($file, $this->getSampleFileContents($fileName.'.key'), $mediaType);
-        $decryptStream->read(1024);
-        $this->assertEquals($this->getSampleFileContents( $fileName . '.original'), (string)$decryptStream);
+        $file = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.original', 'rb'));
+        $encryptStream = new EncryptStream($file, $this->getSampleFileContents($fileName.'.key'), $mediaType);
+        $encryptStream->read(1024);
+        $this->assertEquals($this->getSampleFileContents( $fileName . '.encrypted'), (string)$encryptStream);
     }
 
     public function testToStringRewind()

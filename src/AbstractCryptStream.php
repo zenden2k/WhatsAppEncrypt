@@ -5,7 +5,8 @@ namespace Zenden2k\WhatsappEncrypt;
 use Psr\Http\Message\StreamInterface;
 abstract class AbstractCryptStream implements StreamInterface
 {
-
+    const BLOCK_SIZE = 16; // 128 bits
+    const MAC_TRUNCATION_SIZE = 10;
     protected StreamInterface $stream;
     protected string $mediaKey;
 
