@@ -9,6 +9,7 @@ abstract class AbstractCryptStream implements StreamInterface
     protected StreamInterface $stream;
     protected string $mediaKey;
 
+    protected string $baseIv;
     protected string $iv;
     protected string $cipherKey;
     protected string $macKey;
@@ -18,7 +19,7 @@ abstract class AbstractCryptStream implements StreamInterface
         $this->stream = $stream;
         $this->mediaKey = $mediaKey;
         $mediaKeyExpanded = hash_hkdf('sha256', $mediaKey, 112, $appInfo);
-        $this->iv = substr($mediaKeyExpanded, 0, 16);
+        $this->iv = $this->baseIv = substr($mediaKeyExpanded, 0, 16);
         $this->cipherKey = substr($mediaKeyExpanded, 16, 32);
         $this->macKey = substr($mediaKeyExpanded, 48, 32);
         $this->refKey = substr($mediaKeyExpanded, 80);
