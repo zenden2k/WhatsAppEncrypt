@@ -215,7 +215,7 @@ class DecryptStream extends AbstractCryptStream
         }
 
         $this->pos += strlen($decryptedData);
-        $this->iv = substr($cipherText, self::BLOCK_SIZE * -1);
+        $this->iv = substr($cipherText, - self::BLOCK_SIZE);
 
         return $decryptedData;
     }

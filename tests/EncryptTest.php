@@ -4,6 +4,7 @@ namespace Zenden2k\WhatsappEncrypt\Tests;
 
 use GuzzleHttp\Psr7;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\StreamInterface;
 use Zenden2k\WhatsappEncrypt\EncryptStream;
 use Zenden2k\WhatsappEncrypt\Helper;
 
@@ -11,16 +12,18 @@ class EncryptTest extends TestCase
 {
     use SampleFileTrait;
 
-    private function doTestReadFile(string $fileName, string $mediaType) {
+    private function doTestReadFile(string $fileName, string $mediaType): EncryptStream {
         $file = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.original', 'rb'));
         $encryptStream = new EncryptStream($file, $this->getSampleFileContents($fileName.'.key'), $mediaType);
         $this->assertEquals($this->getSampleFileContents( $fileName . '.encrypted'), $encryptStream->getContents());
+        return $encryptStream;
     }
 
-    private function doTestPartialReadFile(string $fileName, string $mediaType, int $bufferSize = 32 * 1024)
+    private function doTestPartialReadFile(string $fileName, string $mediaType, int $bufferSize = 32 * 1024,
+                                           ?StreamInterface $sidecarStream = null): EncryptStream
     {
         $imageFile = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.original', 'r'));
-        $encryptStream = new EncryptStream($imageFile, $this->getSampleFileContents($fileName.'.key'), $mediaType);
+        $encryptStream = new EncryptStream($imageFile, $this->getSampleFileContents($fileName.'.key'), $mediaType, $sidecarStream);
         $data = '';
 
         while(!$encryptStream->eof()) {
@@ -28,6 +31,7 @@ class EncryptTest extends TestCase
         }
 
         $this->assertEquals($this->getSampleFileContents( $fileName . '.encrypted'), $data);
+        return $encryptStream;
     }
 
     public function testReadFiles()
@@ -121,5 +125,13 @@ class EncryptTest extends TestCase
         $this->doTestToStringRewind('IMAGE', Helper::MEDIA_TYPE_IMAGE);
         $this->doTestToStringRewind('VIDEO', Helper::MEDIA_TYPE_VIDEO);
         $this->doTestToStringRewind('AUDIO', Helper::MEDIA_TYPE_AUDIO);
+    }
+
+    public function testSidecar()
+    {
+        $this->markTestSkipped();
+        $sidecarStream = Psr7\Utils::streamFor(fopen('php://memory', 'r+'));
+        $inputStream = $this->doTestPartialReadFile('VIDEO', Helper::MEDIA_TYPE_VIDEO, 32 * 1024, $sidecarStream);
+        $this->assertEquals($this->getSampleFileContents('VIDEO.sidecar'), (string)$sidecarStream);
     }
 }

@@ -7,21 +7,21 @@ use Psr\Http\Message\StreamInterface;
 
 class EncryptStream extends AbstractCryptStream
 {
+    const SIDECAR_CHUNK_SIZE = 64 * 1024;
     private \HashContext $hashContext;
     private string $buffer = '';
-
     private int $pos = 0;
-
-
     private int $macPos;
-
     private ?string $hash = null;
+    private string $sidecarBuffer = '';
+    private ?StreamInterface $sidecarStream;
 
-    public function __construct(StreamInterface $stream, string $mediaKey, string $appInfo)
+    public function __construct(StreamInterface $stream, string $mediaKey, string $appInfo, ?StreamInterface $sidecarStream = null)
     {
         parent::__construct($stream, $mediaKey, $appInfo);
 
         $this->macPos = $this->getSize() - self::MAC_TRUNCATION_SIZE;
+        $this->sidecarStream = $sidecarStream;
         $this->initHash();
     }
 
@@ -199,7 +199,13 @@ class EncryptStream extends AbstractCryptStream
         }
 
         $data = substr($this->buffer, 0, $length);
+
         $this->pos += strlen($data);
+
+        if ($this->sidecarStream !== null) {
+            $this->sidecarBuffer .= $data;
+            $this->generateSidecar($this->stream->eof());
+        }
 
         if ($this->pos >= $this->macPos) {
             $leftBytesCount = max(0, $length - strlen($data));
@@ -227,5 +233,24 @@ class EncryptStream extends AbstractCryptStream
     public function getMetadata(?string $key = null)
     {
         return $this->stream->getMetadata($key);
+    }
+
+    private function generateSidecar(bool $finish = false)
+    {
+        $add = 16;
+        $len = strlen($this->sidecarBuffer);
+        if (!$len) {
+            return;
+        }
+        for ($offset = 0; $offset < $len; $offset += self::SIDECAR_CHUNK_SIZE) {
+            if (!$finish && $len - $offset < self::SIDECAR_CHUNK_SIZE + $add) {
+                break;
+            }
+
+            $hashContext = hash_init('sha256', HASH_HMAC, $this->macKey);
+            hash_update($hashContext, substr($this->sidecarBuffer, $offset, self::SIDECAR_CHUNK_SIZE + $add));
+            $this->sidecarStream->write(substr(hash_final($hashContext, true), 0, self::MAC_TRUNCATION_SIZE));
+        }
+        $this->sidecarBuffer = substr($this->sidecarBuffer, $offset);
     }
 }
