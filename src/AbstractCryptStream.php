@@ -1,20 +1,21 @@
 <?php
 
-namespace Zenden2k\WhatsappEncrypt;
+namespace Zenden2k\WhatsAppEncrypt;
 
 use Psr\Http\Message\StreamInterface;
 abstract class AbstractCryptStream implements StreamInterface
 {
-    const BLOCK_SIZE = 16; // 128 bits
-    const MAC_TRUNCATION_SIZE = 10;
+    protected const BLOCK_SIZE = 16; // 128 bits
+    protected const MAC_SIZE = 10;
+    protected const BUFFER_SIZE = 32768;
     protected StreamInterface $stream;
     protected string $mediaKey;
-
     protected string $baseIv;
     protected string $iv;
     protected string $cipherKey;
     protected string $macKey;
     protected string $refKey;
+
     public function __construct(StreamInterface $stream, string $mediaKey, string $appInfo)
     {
         $this->stream = $stream;
@@ -24,9 +25,5 @@ abstract class AbstractCryptStream implements StreamInterface
         $this->cipherKey = substr($mediaKeyExpanded, 16, 32);
         $this->macKey = substr($mediaKeyExpanded, 48, 32);
         $this->refKey = substr($mediaKeyExpanded, 80);
-    }
-
-    public function __destruct() {
-        $this->close();
     }
 }

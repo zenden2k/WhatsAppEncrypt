@@ -1,19 +1,15 @@
 <?php
 
-namespace Zenden2k\WhatsappEncrypt;
+namespace Zenden2k\WhatsAppEncrypt;
 
 use LogicException;
 use Psr\Http\Message\StreamInterface;
 
 class DecryptStream extends AbstractCryptStream
 {
-    private const BUFFER_SIZE = 32768;
-
     private ?bool $validated = null;
-    private ?int $length = null;
-
+    private ?int $macPos = null;
     private int $pos = 0;
-
     private string $plainBuffer = '';
     private string $cipherBuffer = '';
 
@@ -41,14 +37,14 @@ class DecryptStream extends AbstractCryptStream
         }
 
         $readBytes = 0;
-        $this->length = $this->stream->getSize();
+        $this->macPos = $this->stream->getSize() - self::MAC_SIZE;
         $hashContext = hash_init('sha256', HASH_HMAC, $this->macKey);
 
         hash_update($hashContext, $this->iv);
         while(!$this->stream->eof()) {
             $bytesToRead = min(
                 self::BUFFER_SIZE,
-                $this->length - $readBytes - self::MAC_TRUNCATION_SIZE
+                $this->macPos - $readBytes
             );
             if ($bytesToRead <= 0) {
                 break;
@@ -59,9 +55,9 @@ class DecryptStream extends AbstractCryptStream
         }
 
         $calculatedHash = hash_final($hashContext, true);
-        $exactHash = $this->stream->read(self::MAC_TRUNCATION_SIZE);
+        $exactHash = $this->stream->read(self::MAC_SIZE);
         $this->stream->rewind();
-        if (substr($calculatedHash,0, self::MAC_TRUNCATION_SIZE) !== $exactHash) {
+        if (substr($calculatedHash,0, self::MAC_SIZE) !== $exactHash) {
             throw new DataIntegrityCheckFailedException("MAC check failed. The input stream is corrupted");
         }
 
@@ -76,7 +72,7 @@ class DecryptStream extends AbstractCryptStream
         try {
             $this->rewind();
             $this->validate();
-            return $this->read($this->length);
+            return $this->getContents();
         } catch (\Throwable $exception) {
             return '';
         }
@@ -119,10 +115,10 @@ class DecryptStream extends AbstractCryptStream
      */
     public function eof(): bool
     {
-        if ($this->length === null) {
+        if ($this->macPos === null) {
             return false;
         }
-        return $this->cipherBuffer === '' && ($this->length - $this->stream->tell() - self::MAC_TRUNCATION_SIZE <= 0);
+        return $this->cipherBuffer === '' && ($this->macPos - $this->stream->tell() <= 0);
     }
 
     /**
@@ -138,14 +134,28 @@ class DecryptStream extends AbstractCryptStream
      */
     public function seek(int $offset, int $whence = SEEK_SET): void
     {
-        if ($offset === 0 && $whence === SEEK_SET) {
-            $this->stream->seek(0, SEEK_SET);
-            $this->pos = 0;
-            $this->iv = $this->baseIv;
+        if ($whence === SEEK_CUR) {
+            $offset = $this->tell() + $offset;
+            $whence = SEEK_SET;
+        }
+
+        if ($whence === SEEK_SET) {
             $this->plainBuffer = '';
             $this->cipherBuffer = '';
+            $wholeBlockOffset = (int) ($offset / self::BLOCK_SIZE) * self::BLOCK_SIZE;
+            $prevBlockOffset = $wholeBlockOffset - self::BLOCK_SIZE;
+
+            if ($prevBlockOffset < 0) {
+                $this->iv = $this->baseIv;
+                $this->stream->seek(0);
+            } else {
+                $this->stream->seek($prevBlockOffset);
+                $this->iv = $this->stream->read(self::BLOCK_SIZE);
+            }
+            $this->pos = $wholeBlockOffset;
+            $this->read($offset - $wholeBlockOffset);
         } else {
-            throw new LogicException('Decryption streams only support being rewound, not arbitrary seeking.');
+            throw new LogicException('Unrecognized whence.');
         }
     }
 
@@ -191,13 +201,13 @@ class DecryptStream extends AbstractCryptStream
             return '';
         }
 
-        $length = min($length, $this->length - $this->stream->tell() - self::MAC_TRUNCATION_SIZE);
+        $length = min($length, $this->macPos - $this->stream->tell());
 
         $cipherText = $this->cipherBuffer;
-        while (strlen($cipherText) < $length && !($this->length - $this->stream->tell() - self::MAC_TRUNCATION_SIZE <= 0)) {
+        while (strlen($cipherText) < $length && !($this->macPos - $this->stream->tell() <= 0)) {
             $cipherText .= $this->stream->read($length - strlen($cipherText));
         }
-        $bytesLeft = $this->length - $this->stream->tell() - self::MAC_TRUNCATION_SIZE;
+        $bytesLeft = $this->macPos - $this->stream->tell();
         $blockSize = min(self::BLOCK_SIZE, $bytesLeft);
 
         $this->cipherBuffer = $this->stream->read($blockSize);
@@ -207,7 +217,7 @@ class DecryptStream extends AbstractCryptStream
         if (!$this->eof()){
             $options |= OPENSSL_NO_PADDING;
         } else {
-            $this->stream->read(self::MAC_TRUNCATION_SIZE);
+            $this->stream->read(self::MAC_SIZE);
         }
         $decryptedData = openssl_decrypt($cipherText, 'aes-256-cbc', $this->cipherKey, $options, $this->iv);
         if ($decryptedData === false) {
@@ -246,7 +256,12 @@ class DecryptStream extends AbstractCryptStream
     {
         $this->validate();
 
-        return $this->read($this->length);
+        $result = '';
+        while (!$this->eof()) {
+            $result .= $this->read(self::BUFFER_SIZE);
+        }
+
+        return $result;
     }
 
     /**

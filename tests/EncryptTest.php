@@ -1,12 +1,12 @@
 <?php
 
-namespace Zenden2k\WhatsappEncrypt\Tests;
+namespace Zenden2k\WhatsAppEncrypt\Tests;
 
 use GuzzleHttp\Psr7;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\StreamInterface;
-use Zenden2k\WhatsappEncrypt\EncryptStream;
-use Zenden2k\WhatsappEncrypt\Helper;
+use Zenden2k\WhatsAppEncrypt\EncryptStream;
+use Zenden2k\WhatsAppEncrypt\Helper;
 
 class EncryptTest extends TestCase
 {
@@ -131,7 +131,7 @@ class EncryptTest extends TestCase
     {
         $this->markTestSkipped();
         $sidecarStream = Psr7\Utils::streamFor(fopen('php://memory', 'r+'));
-        $inputStream = $this->doTestPartialReadFile('VIDEO', Helper::MEDIA_TYPE_VIDEO, 32 * 1024, $sidecarStream);
+        $this->doTestPartialReadFile('VIDEO', Helper::MEDIA_TYPE_VIDEO, 32 * 1024, $sidecarStream);
         $this->assertEquals($this->getSampleFileContents('VIDEO.sidecar'), (string)$sidecarStream);
     }
 }

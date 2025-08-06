@@ -1,6 +1,6 @@
 <?php
 
-namespace Zenden2k\WhatsappEncrypt;
+namespace Zenden2k\WhatsAppEncrypt;
 
 class Helper
 {

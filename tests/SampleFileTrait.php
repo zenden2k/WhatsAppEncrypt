@@ -1,6 +1,6 @@
 <?php
 
-namespace Zenden2k\WhatsappEncrypt\Tests;
+namespace Zenden2k\WhatsAppEncrypt\Tests;
 
 trait SampleFileTrait
 {
@@ -12,5 +12,4 @@ trait SampleFileTrait
         }
         return $this->sampleFileCache[$fileName];
     }
-
 }

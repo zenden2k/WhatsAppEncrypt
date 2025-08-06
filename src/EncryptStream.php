@@ -1,6 +1,6 @@
 <?php
 
-namespace Zenden2k\WhatsappEncrypt;
+namespace Zenden2k\WhatsAppEncrypt;
 
 use Psr\Http\Message\StreamInterface;
 
@@ -20,7 +20,7 @@ class EncryptStream extends AbstractCryptStream
     {
         parent::__construct($stream, $mediaKey, $appInfo);
 
-        $this->macPos = $this->getSize() - self::MAC_TRUNCATION_SIZE;
+        $this->macPos = $this->getSize() - self::MAC_SIZE;
         $this->sidecarStream = $sidecarStream;
         $this->initHash();
     }
@@ -67,7 +67,7 @@ class EncryptStream extends AbstractCryptStream
     {
         $len = $this->stream->getSize();
         $padding = self::BLOCK_SIZE - $len % self::BLOCK_SIZE;
-        return $len + $padding + self::MAC_TRUNCATION_SIZE;
+        return $len + $padding + self::MAC_SIZE;
     }
 
     /**
@@ -106,7 +106,7 @@ class EncryptStream extends AbstractCryptStream
             $this->iv = $this->baseIv;
             $this->initHash();
         } else {
-            throw new \LogicException('Decryption streams only support being rewound, not arbitrary seeking.');
+            throw new \LogicException('Encryption streams only support being rewound, not arbitrary seeking.');
         }
     }
 
@@ -178,7 +178,7 @@ class EncryptStream extends AbstractCryptStream
         if ($this->hash === null) {
             hash_update($this->hashContext, $cipherText);
             if ($this->stream->eof()) {
-                $this->hash = substr(hash_final($this->hashContext, true), 0, self::MAC_TRUNCATION_SIZE);
+                $this->hash = substr(hash_final($this->hashContext, true), 0, self::MAC_SIZE);
             }
         }
 
@@ -224,7 +224,12 @@ class EncryptStream extends AbstractCryptStream
      */
     public function getContents(): string
     {
-        return $this->read($this->getSize());
+        $result = '';
+        while (!$this->eof()) {
+            $result .= $this->read(self::BUFFER_SIZE);
+        }
+
+        return $result;
     }
 
     /**
@@ -237,19 +242,21 @@ class EncryptStream extends AbstractCryptStream
 
     private function generateSidecar(bool $finish = false)
     {
-        $add = 16;
         $len = strlen($this->sidecarBuffer);
+
         if (!$len) {
             return;
         }
+
         for ($offset = 0; $offset < $len; $offset += self::SIDECAR_CHUNK_SIZE) {
-            if (!$finish && $len - $offset < self::SIDECAR_CHUNK_SIZE + $add) {
+            if (!$finish && ($len - $offset < self::SIDECAR_CHUNK_SIZE + 16)) {
                 break;
             }
 
             $hashContext = hash_init('sha256', HASH_HMAC, $this->macKey);
-            hash_update($hashContext, substr($this->sidecarBuffer, $offset, self::SIDECAR_CHUNK_SIZE + $add));
-            $this->sidecarStream->write(substr(hash_final($hashContext, true), 0, self::MAC_TRUNCATION_SIZE));
+            hash_update($hashContext, substr($this->sidecarBuffer, $offset, self::SIDECAR_CHUNK_SIZE + 16));
+
+            $this->sidecarStream->write(substr(hash_final($hashContext, true), 0, self::MAC_SIZE));
         }
         $this->sidecarBuffer = substr($this->sidecarBuffer, $offset);
     }

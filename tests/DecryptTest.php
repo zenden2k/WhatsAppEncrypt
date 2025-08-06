@@ -1,11 +1,11 @@
 <?php
 
-namespace Zenden2k\WhatsappEncrypt\Tests;
+namespace Zenden2k\WhatsAppEncrypt\Tests;
 
 use GuzzleHttp\Psr7;
 use PHPUnit\Framework\TestCase;
-use Zenden2k\WhatsappEncrypt\DecryptStream;
-use Zenden2k\WhatsappEncrypt\Helper;
+use Zenden2k\WhatsAppEncrypt\DecryptStream;
+use Zenden2k\WhatsAppEncrypt\Helper;
 
 class DecryptTest extends TestCase
 {
@@ -82,15 +82,20 @@ class DecryptTest extends TestCase
         $this->doTestSeek('AUDIO', Helper::MEDIA_TYPE_AUDIO);
     }
 
-    public function testSeekThrowsException() {
+    public function testSeekToMiddle() {
         $fileName = 'IMAGE';
         $mediaType = Helper::MEDIA_TYPE_IMAGE;
-        $this->expectException(\LogicException::class);
         $file = Psr7\Utils::streamFor(fopen(SAMPLES_DIR . $fileName . '.encrypted', 'rb'));
         $decryptStream = new DecryptStream($file, $this->getSampleFileContents($fileName.'.key'), $mediaType);
         $originalFileContents = $this->getSampleFileContents( $fileName . '.original');
         $this->assertEquals($originalFileContents, $decryptStream->getContents());
-        $decryptStream->seek(5555);
+        $startOffset = 5555;
+        $decryptStream->seek($startOffset);
+        $this->assertEquals(substr($originalFileContents, $startOffset), $decryptStream->getContents());
+
+        $startOffset = 54229;
+        $decryptStream->seek($startOffset);
+        $this->assertEquals(substr($originalFileContents, $startOffset), $decryptStream->getContents());
     }
 
     private function doTestToString(string $fileName, string $mediaType) {
